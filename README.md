@@ -1,69 +1,115 @@
-# Deye Inverter Connect
+# deye_solarman
 
-Dart code for interacting with Solarman data collectors used with Deye inverter. You can use this code in flutter or directly from cmd.
+A Dart implementation of the **SolarmanV5 / Modbus RTU** protocol used by
+Solarman-compatible data loggers on Deye hybrid solar inverters — read
+battery SOC, PV power, grid status and more directly over your local
+network, no cloud account required.
 
-This code is made with the help of Pysolarman by Jonathan McCrohan [pysolarmanv5](https://github.com/jmccrohan/pysolarmanv5)
+Framework-agnostic: works the same from a Flutter app or a plain `dart run`
+script. Used in [Solar Grid](https://github.com/Mhmdkh77/solargrid), a
+Flutter inverter-monitoring app.
 
-# How to use
+Built with reference to [pysolarmanv5](https://github.com/jmccrohan/pysolarmanv5)
+by Jonathan McCrohan.
 
-### 1. Initialize Connection
+## Install
 
-You need data logger ip address and serial number
+Not published on pub.dev — depend on it directly from GitHub:
+
+```yaml
+dependencies:
+  deye_solarman:
+    git:
+      url: https://github.com/Mhmdkh77/deye-solarman
+      ref: v1.0.0 # pin to a tag; omit to track main
+```
+
+## Usage
+
+### 1. Connect
+
+You need the data logger's IP address and serial number (both are printed
+on the logger itself, or discoverable via `Inverter.scan()`).
 
 ```dart
- Inverter inverter = await Inverter.init(address: "192.168.1.50", loggerSerial: 27xxxxxxxx);
+import 'package:deye_solarman/deye_solarman.dart';
+
+final inverter = await Inverter.init(
+  address: '192.168.1.50',
+  loggerSerial: 2739492956,
+);
 ```
 
-### 2. Read Data
+### 2. Discover loggers on the network (optional)
 
-To read data you need to set starting register (e.g.: 184 which represent Battery SOC) and the number of registers to read starting from the register number you put.
+Broadcasts a UDP discovery packet and returns any loggers that respond,
+with their IP, MAC and serial number:
 
 ```dart
- var data = await inverter.readHoldingRegisters(register: 184, quantity: 10);
+final loggers = await Inverter.scan();
 ```
 
-Note that the register must be defined in the registers map in the code. I already added some :
+### 3. Read registers
+
+Pass a starting register address and how many consecutive registers to
+read:
 
 ```dart
-final Map<String, String> registers = {
-    "70": "Daily Battery Charge(0.1 kwh)",
-    "71": "Daily Battery Discharge(0.1 kwh)",
-    "108": "Daily Production(0.1 kWh)",
-    "109": "PV1 Voltage(0.1 V)",
-    "110": "PV1 Current(0.1 A)",
-    "111": "PV2 Voltage(0.1 V)",
-    "112": "PV2 Current(0.1 A)",
-    "183": "Battery Voltage(0.01 V)",
-    "184": "Battery SOC(%)",
-    "186": "PV1 Power(W)",
-    "187": "PV2 Power(w)",
-    "189": "Battery Status(0:Charge, 1:Stand-by, 2:Discharge)",
-    "190": "Battery Power(W)",
-    "191": "Battery Current(0.01 A)",
-    "194": "Grid Relay Status(0:Off, 1:On)",
-  };
+final data = await inverter.readHoldingRegisters(register: 184, quantity: 11);
+print(data); // {Battery SOC: 82, Grid Relay Status: 1}
 ```
 
-you can refer to Modbus.pdf file I provided for more registers
+Only addresses present in `Inverter.registers` are returned — others in the
+requested range are read from the device but dropped, so it's safe to over-read
+a range.
 
-### 3. Use Data
+Values are returned as **raw register integers** — scale factors (e.g. PV
+voltage is ×0.1 V) are documented below but not applied automatically, so
+multiply them yourself if you need real-world units. Registers marked
+"signed" are already sign-corrected (two's complement).
 
-The data is structured in a map, you can print it or do whatever you want.
+### 4. Disconnect
 
 ```dart
- print(data);
+await inverter.closeSocket();
 ```
 
-output :
+## Registers
 
-```json
- {
-  Battery SOC(%): 99,
-  PV1 Power(W): 10,
-  PV2 Power(w): 12,
-  Battery Status(0:Charge, 1:Stand-by, 2:Discharge): 0,
-  Battery Power(W): 202,
-  Battery Current(0.01 A): 382,
-  Grid Relay Status(0:Off, 1:On): 0
- }
-```
+Addresses are for the **Deye hybrid inverter family** (e.g.
+SUN-3.6/5/6K-SG03LP1-EU) via a Solarman-compatible data logger. Register
+layouts are inverter-model specific — verify against your own inverter's
+register map before trusting values from a different model.
+
+`184` (Battery SOC) and `194` (Grid Relay Status) are confirmed directly
+against real hardware (Deye SUN-5K-SG03LP1-EU + Solarman LSW-3 stick
+logger). The rest are sourced from community Modbus documentation for the
+Deye hybrid family and haven't been individually verified against this
+author's hardware.
+
+| Address | Name | Scale | Unit | Signed |
+|---|---|---|---|---|
+| 70 | Daily Battery Charge | ×0.1 | kWh | |
+| 71 | Daily Battery Discharge | ×0.1 | kWh | |
+| 108 | Daily Production | ×0.1 | kWh | |
+| 109 | PV1 Voltage | ×0.1 | V | |
+| 110 | PV1 Current | ×0.1 | A | |
+| 111 | PV2 Voltage | ×0.1 | V | |
+| 112 | PV2 Current | ×0.1 | A | |
+| 183 | Battery Voltage | ×0.01 | V | |
+| **184** | **Battery SOC** | ×1 | % | |
+| 186 | PV1 Power | ×1 | W | |
+| 187 | PV2 Power | ×1 | W | |
+| 189 | Battery Status | — | lookup: 0=Charge, 1=Stand-by, 2=Discharge | |
+| 190 | Battery Power | ×1 | W | ✅ |
+| 191 | Battery Current | ×0.01 | A | ✅ |
+| **194** | **Grid Relay Status** | — | lookup: 0=Off, 1=On | |
+
+See `Modbus.pdf` in this repo for a fuller Deye Modbus register reference.
+
+## Protocol notes
+
+- Data loggers listen on TCP port `8899` for the Modbus-over-SolarmanV5
+  frame protocol, and respond to UDP discovery broadcasts on port `48899`.
+- Each `Inverter` wraps one persistent TCP socket; open one per logger and
+  reuse it across reads rather than reconnecting per request.
