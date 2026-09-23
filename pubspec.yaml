@@ -2,7 +2,7 @@ name: deye_solarman
 description: >
   Dart implementation of the SolarmanV5 / Modbus RTU protocol used by
   Solarman-compatible data loggers on Deye hybrid solar inverters.
-version: 1.0.1
+version: 1.0.2
 homepage: https://github.com/Mhmdkh77/deye-solarman
 repository: https://github.com/Mhmdkh77/deye-solarman
 

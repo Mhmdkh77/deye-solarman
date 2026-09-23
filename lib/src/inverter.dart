@@ -33,9 +33,9 @@ class Inverter {
   /// Solarman LSW-3: PV1/PV2 voltage, current and power (109–112, 186–187),
   /// battery voltage, SOC, power and current (183, 184, 190, 191), daily
   /// energy totals (70, 71, 108), and grid relay status (194). Positive
-  /// battery power was observed while discharging. Register 189 returned 0
-  /// during discharge, so its status-code meanings have not been established
-  /// for this inverter.
+  /// battery power was observed while discharging. The bundled Modbus.pdf
+  /// lists 188/189 as PV3/PV4 input power; those inputs are not verified on
+  /// this inverter.
   ///
   /// Scale/unit (not applied to returned values — see [readHoldingRegisters]):
   ///   70  Daily Battery Charge     ×0.1  kWh
@@ -49,7 +49,8 @@ class Inverter {
   ///   184 Battery SOC              ×1    %
   ///   186 PV1 Power                ×1    W
   ///   187 PV2 Power                ×1    W
-  ///   189 Battery Status           raw code; meanings unverified on this model
+  ///   188 PV3 Power                ×1    W     (if supported)
+  ///   189 PV4 Power                ×1    W     (if supported)
   ///   190 Battery Power            ×1    W     (signed)
   ///   191 Battery Current          ×0.01 A     (signed)
   ///   194 Grid Relay Status        lookup: 0=Off, 1=On
@@ -65,7 +66,8 @@ class Inverter {
     '184': RegisterDef('Battery SOC'),
     '186': RegisterDef('PV1 Power'),
     '187': RegisterDef('PV2 Power'),
-    '189': RegisterDef('Battery Status'),
+    '188': RegisterDef('PV3 Power'),
+    '189': RegisterDef('PV4 Power'),
     '190': RegisterDef('Battery Power', signed: true),
     '191': RegisterDef('Battery Current', signed: true),
     '194': RegisterDef('Grid Relay Status'),
