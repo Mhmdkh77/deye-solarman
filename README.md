@@ -2,12 +2,12 @@
 
 > **Tested on:** Deye SUN-5K-SG03LP1-EU hybrid inverter + Solarman LSW-3
 > WiFi stick logger. PV1/PV2 readings, battery power, battery SOC and grid
-> status have been compared with the inverter display; the remaining entries
-> have different levels of evidence — see [Registers](#registers). Other Deye
+> status and daily energy totals have been compared with the inverter display;
+> register `189` remains unverified — see [Registers](#registers). Other Deye
 > hybrid models are **not** guaranteed to share these addresses: community
 > documentation shows they overlap for some similar single-phase models,
-> but diverge for others (e.g. the
-> higher-power/three-phase SG04LP3/SG05LP3 line uses different addresses
+> but diverge for others (e.g. the higher-power/three-phase SG04LP3/SG05LP3
+> line uses different addresses
 > for some of the same values) — treat any model besides SG03LP1 as
 > unverified.
 
@@ -142,14 +142,14 @@ inverter display: PV1 was about 77–80 V, 0.1 A, 10–13 W; PV2 about 97–104 
 0.2 A, 21–24 W. The values changed slightly between readings. Register `190`
 read about +395 W while the display showed about 403 W **discharging**, so
 positive battery power means discharge on this inverter. Registers `183`
-(battery voltage) and `191` (battery current) also agree with the power:
-roughly 53.0 V × 7.45 A ≈ 395 W, but were not separately compared with the
-display. `184` (Battery SOC) and `194` (Grid Relay Status) were checked
-previously against the hardware.
+(battery voltage) and `191` (battery current) also match the display; their
+values agree with the power: roughly 53.0 V × 7.45 A ≈ 395 W. Daily energy
+totals (`70`, `71`, `108`) matched at 5.9 kWh charged, 5.3 kWh discharged,
+and 18.7 kWh produced. `184` (Battery SOC) and `194` (Grid Relay Status)
+were checked previously against the hardware.
 
-Daily energy totals (`70`, `71`, `108`) have plausible values but have not
-been checked against the display. Register `189` returned `0` while the
-battery was discharging. The [Home Assistant Solarman register profile](https://github.com/StephanJoubert/home_assistant_solarman/blob/main/custom_components/solarman/inverter_definitions/deye_hybrid.yaml)
+Register `189` returned `0` while the battery was discharging. The
+[Home Assistant Solarman register profile](https://github.com/StephanJoubert/home_assistant_solarman/blob/main/custom_components/solarman/inverter_definitions/deye_hybrid.yaml)
 labels `0` as "Charge". That label does not match this observation, so treat
 `189` as an **uninterpreted raw status code** until its meanings are tested
 in multiple states.
