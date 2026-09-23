@@ -1,10 +1,14 @@
 # deye_solarman
 
 > **Tested on:** Deye SUN-5K-SG03LP1-EU hybrid inverter + Solarman LSW-3
-> WiFi stick logger. Should work with other inverters in the Deye hybrid
-> family via a Solarman-compatible logger, but only two registers (`184`,
-> `194`) have actually been verified against real hardware — see
-> [Registers](#registers) before trusting the rest.
+> WiFi stick logger. Only two registers (`184`, `194`) have actually been
+> verified against real hardware — see [Registers](#registers) before
+> trusting the rest. Other Deye hybrid models are **not** guaranteed to
+> share these addresses: community documentation shows they overlap for
+> some similar single-phase models, but diverge for others (e.g. the
+> higher-power/three-phase SG04LP3/SG05LP3 line uses different addresses
+> for some of the same values) — treat any model besides SG03LP1 as
+> unverified.
 
 A Dart implementation of the **SolarmanV5 / Modbus RTU** protocol used by
 Solarman-compatible data loggers on Deye hybrid solar inverters — read
@@ -53,7 +57,7 @@ dependencies:
   deye_solarman:
     git:
       url: https://github.com/Mhmdkh77/deye-solarman
-      ref: v1.0.0 # pin to a tag; omit to track main
+      ref: v1.0.1 # pin to a tag; omit to track main
 ```
 
 ## Usage

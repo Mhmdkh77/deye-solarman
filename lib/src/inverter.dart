@@ -94,52 +94,55 @@ class Inverter {
   /// Broadcasts UDP discovery packet to find loggers on local network.
   /// Returns a list of maps with keys: ipAddress, mac, serial.
   static Future<List<Map<String, String>>> scan() async {
-    final completer = Completer<void>();
-    final List<Map<String, String>> dataLoggers = [];
-
-    final socket = await RawDatagramSocket.bind(InternetAddress.anyIPv4, 0);
-    socket.broadcastEnabled = true;
-
-    socket.listen(
-      (RawSocketEvent event) {
-        if (event == RawSocketEvent.read) {
-          final datagram = socket.receive();
-          if (datagram != null) {
-            final data = String.fromCharCodes(datagram.data);
-            try {
-              final keys = ['ipAddress', 'mac', 'serial'];
-              final values = data.split(',');
-              if (values.length >= 3) {
-                final result = Map.fromIterables(keys, values.take(3));
-                dataLoggers.add(result);
-                if (!completer.isCompleted) completer.complete();
-              }
-            } catch (_) {
-              // Ignore malformed packets
-            }
-          }
-        }
-      },
-      onError: (error) {
-        if (!completer.isCompleted) completer.completeError(error);
-      },
-    );
-
+    final dataLoggers = <String, Map<String, String>>{};
+    final sockets = <RawDatagramSocket>[];
     const request = 'WIFIKIT-214028-READ';
     final broadcastAddr = InternetAddress('255.255.255.255');
     const discoveryPort = 48899;
-
-    socket.send(request.codeUnits, broadcastAddr, discoveryPort);
-
+    final interfaces = await NetworkInterface.list(type: InternetAddressType.IPv4);
     try {
-      await completer.future.timeout(const Duration(seconds: 5));
-    } on TimeoutException {
-      // Timeout is expected if no loggers found
+      for (final interface in interfaces) {
+        for (final address in interface.addresses) {
+          if (address.isLoopback || address.isLinkLocal) continue;
+          try {
+            // Windows may send a broadcast from 0.0.0.0 through the wrong
+            // adapter. Bind a separate socket to each interface instead.
+            final socket = await RawDatagramSocket.bind(address, 0);
+            sockets.add(socket);
+            socket.broadcastEnabled = true;
+            socket.listen((event) {
+              if (event != RawSocketEvent.read) return;
+              Datagram? datagram;
+              while ((datagram = socket.receive()) != null) {
+                final fields = String.fromCharCodes(datagram!.data).trim().split(',');
+                if (fields.length < 3) continue;
+                final ip = fields[0].trim();
+                final mac = fields[1].trim();
+                final serial = fields[2].trim();
+                if (InternetAddress.tryParse(ip)?.type != InternetAddressType.IPv4 ||
+                    mac.isEmpty || int.tryParse(serial) == null) continue;
+                dataLoggers[serial] = {
+                  'ipAddress': ip,
+                  'mac': mac,
+                  'serial': serial,
+                };
+              }
+            });
+            socket.send(request.codeUnits, broadcastAddr, discoveryPort);
+          } on SocketException {
+            // One unavailable adapter should not prevent discovery on others.
+          }
+        }
+      }
+      if (sockets.isEmpty) return [];
+      // Keep listening for the full window so all responding loggers appear.
+      await Future<void>.delayed(const Duration(seconds: 5));
     } finally {
-      socket.close();
+      for (final socket in sockets) {
+        socket.close();
+      }
     }
-
-    return dataLoggers;
+    return dataLoggers.values.toList();
   }
 
   /// Creates and connects an Inverter instance to the given address.
