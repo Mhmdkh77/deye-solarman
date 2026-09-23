@@ -29,14 +29,13 @@ class Inverter {
   /// layouts are inverter-model specific — verify against your own
   /// inverter's register map before trusting values from a different model.
   ///
-  /// Confirmed directly against real hardware (Deye SUN-5K-SG03LP1-EU +
-  /// Solarman LSW-3 stick logger):
-  ///   184 → Battery SOC
-  ///   194 → Grid Relay Status
-  ///
-  /// The rest are sourced from community Modbus documentation for the Deye
-  /// hybrid inverter family and have not been individually verified against
-  /// this author's hardware.
+  /// Checked against the inverter display on a Deye SUN-5K-SG03LP1-EU with
+  /// Solarman LSW-3: PV1/PV2 voltage, current and power (109–112, 186–187),
+  /// battery power (190; positive while discharging), SOC (184), and grid
+  /// relay status (194). Battery voltage (183) and current (191) are consistent
+  /// with the measured battery power. Daily energy totals (70, 71, 108) still
+  /// need a display comparison. Register 189 returned 0 during discharge, so
+  /// its status-code meanings have not been established for this inverter.
   ///
   /// Scale/unit (not applied to returned values — see [readHoldingRegisters]):
   ///   70  Daily Battery Charge     ×0.1  kWh
@@ -50,7 +49,7 @@ class Inverter {
   ///   184 Battery SOC              ×1    %
   ///   186 PV1 Power                ×1    W
   ///   187 PV2 Power                ×1    W
-  ///   189 Battery Status           lookup: 0=Charge, 1=Stand-by, 2=Discharge
+  ///   189 Battery Status           raw code; meanings unverified on this model
   ///   190 Battery Power            ×1    W     (signed)
   ///   191 Battery Current          ×0.01 A     (signed)
   ///   194 Grid Relay Status        lookup: 0=Off, 1=On

@@ -1,11 +1,12 @@
 # deye_solarman
 
 > **Tested on:** Deye SUN-5K-SG03LP1-EU hybrid inverter + Solarman LSW-3
-> WiFi stick logger. Only two registers (`184`, `194`) have actually been
-> verified against real hardware — see [Registers](#registers) before
-> trusting the rest. Other Deye hybrid models are **not** guaranteed to
-> share these addresses: community documentation shows they overlap for
-> some similar single-phase models, but diverge for others (e.g. the
+> WiFi stick logger. PV1/PV2 readings, battery power, battery SOC and grid
+> status have been compared with the inverter display; the remaining entries
+> have different levels of evidence — see [Registers](#registers). Other Deye
+> hybrid models are **not** guaranteed to share these addresses: community
+> documentation shows they overlap for some similar single-phase models,
+> but diverge for others (e.g. the
 > higher-power/three-phase SG04LP3/SG05LP3 line uses different addresses
 > for some of the same values) — treat any model besides SG03LP1 as
 > unverified.
@@ -41,7 +42,7 @@ belongs to the **data logger**, not the inverter.
 - Discover data loggers on your local network via UDP broadcast (`Inverter.scan()`)
 - Connect directly to a known logger by IP + serial number, no discovery needed
 - Read any Modbus holding register range (`readHoldingRegisters`)
-- Built-in name/scale/signed metadata for 14 known Deye hybrid registers —
+- Built-in name/scale/signed metadata for 15 Deye hybrid registers —
   battery SOC/voltage/power/current/status, PV1/PV2 voltage/current/power,
   grid relay status, daily production/charge/discharge
 - Correct sign handling for registers that can go negative (e.g. battery
@@ -136,11 +137,22 @@ SUN-3.6/5/6K-SG03LP1-EU) via a Solarman-compatible data logger. Register
 layouts are inverter-model specific — verify against your own inverter's
 register map before trusting values from a different model.
 
-`184` (Battery SOC) and `194` (Grid Relay Status) are confirmed directly
-against real hardware (Deye SUN-5K-SG03LP1-EU + Solarman LSW-3 stick
-logger). The rest are sourced from community Modbus documentation for the
-Deye hybrid family and haven't been individually verified against this
-author's hardware.
+On the stated hardware, `109–112` and `186–187` were compared with the
+inverter display: PV1 was about 77–80 V, 0.1 A, 10–13 W; PV2 about 97–104 V,
+0.2 A, 21–24 W. The values changed slightly between readings. Register `190`
+read about +395 W while the display showed about 403 W **discharging**, so
+positive battery power means discharge on this inverter. Registers `183`
+(battery voltage) and `191` (battery current) also agree with the power:
+roughly 53.0 V × 7.45 A ≈ 395 W, but were not separately compared with the
+display. `184` (Battery SOC) and `194` (Grid Relay Status) were checked
+previously against the hardware.
+
+Daily energy totals (`70`, `71`, `108`) have plausible values but have not
+been checked against the display. Register `189` returned `0` while the
+battery was discharging. The [Home Assistant Solarman register profile](https://github.com/StephanJoubert/home_assistant_solarman/blob/main/custom_components/solarman/inverter_definitions/deye_hybrid.yaml)
+labels `0` as "Charge". That label does not match this observation, so treat
+`189` as an **uninterpreted raw status code** until its meanings are tested
+in multiple states.
 
 | Address | Name | Scale | Unit | Signed |
 |---|---|---|---|---|
@@ -155,7 +167,7 @@ author's hardware.
 | **184** | **Battery SOC** | ×1 | % | |
 | 186 | PV1 Power | ×1 | W | |
 | 187 | PV2 Power | ×1 | W | |
-| 189 | Battery Status | — | lookup: 0=Charge, 1=Stand-by, 2=Discharge | |
+| 189 | Battery Status | — | raw code; meaning unverified | |
 | 190 | Battery Power | ×1 | W | ✅ |
 | 191 | Battery Current | ×0.01 | A | ✅ |
 | **194** | **Grid Relay Status** | — | lookup: 0=Off, 1=On | |
